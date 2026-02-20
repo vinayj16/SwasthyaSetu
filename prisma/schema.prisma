@@ -1,0 +1,425 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(uuid())
+  fullName          String
+  email             String             @unique
+  phone             String?
+  role              String             @default("PATIENT")
+  passwordHash      String
+  mfaEnabled        Boolean            @default(false)
+  mfaSecret         String?
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime           @default(now()) @updatedAt @db.Timestamptz(6)
+  lastLogin         DateTime?          @db.Timestamptz(6)
+  auditLogs         AuditLog[]
+  doctorProfile     Doctor[]
+  employees         employees[]
+  health_identities health_identities?
+  notifications     Notification[]
+  patientProfile    Patient[]
+  receptionists     receptionists[]
+  sessions          sessions[]
+
+  @@map("users")
+}
+
+model Hospital {
+  id               String            @id @default(uuid())
+  name             String
+  type             String
+  registrationNo   String            @unique
+  address          String
+  city             String
+  state            String
+  pincode          String
+  country          String            @default("India")
+  latitude         Float?
+  longitude        Float?
+  phone            String?
+  email            String?
+  emergencyPhone   String?
+  website          String?
+  totalBeds        Int               @default(0)
+  availableBeds    Int               @default(0)
+  icuBeds          Int               @default(0)
+  otRooms          Int               @default(0)
+  hasBloodBank     Boolean           @default(false)
+  hasOrganFacility Boolean           @default(false)
+  hasMortuary      Boolean           @default(false)
+  specializations  String?
+  isActive         Boolean           @default(true)
+  verified         Boolean           @default(false)
+  createdAt        DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+  appointments     Appointment[]
+  auditLogs        AuditLog[]
+  birthRecords     BirthRecord[]
+  bloodBank        BloodBank[]
+  deathRecords     DeathRecord[]
+  departments      departments[]
+  doctors          Doctor[]
+  employees        employees[]
+  mortuaries       mortuaries[]
+  organ_donations  organ_donations[]
+  receptionists    receptionists[]
+  surgeries        SurgerySchedule[]
+
+  @@map("hospitals")
+}
+
+model Doctor {
+  id                String            @id @default(uuid())
+  userId            String
+  hospitalId        String
+  departmentId      String?
+  name              String
+  specialization    String
+  qualification     String
+  registrationNo    String
+  experienceYears   Int               @default(0)
+  available         Boolean           @default(true)
+  opdTimings        String?
+  consultFee        Decimal           @db.Decimal(10, 2)
+  canPerformSurgery Boolean           @default(false)
+  surgeryTypes      String?
+  profilePhotoUrl   String?
+  bio               String?
+  languagesSpoken   String?
+  rating            Float             @default(0.0) @db.Real
+  totalReviews      Int               @default(0)
+  createdAt         DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime          @default(now()) @db.Timestamptz(6)
+  appointments      Appointment[]
+  birthRecords      BirthRecord[]
+  deathRecords      DeathRecord[]
+  departments       departments?      @relation(fields: [departmentId], references: [id])
+  hospital          Hospital          @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  surgeries         SurgerySchedule[]
+
+  @@map("doctors")
+}
+
+model Patient {
+  id                String        @id @default(uuid())
+  userId            String
+  healthId          String?
+  name              String
+  age               Int?
+  gender            String
+  address           String?
+  bloodGroup        String?
+  emergencyContact  String?
+  allergies         String?
+  chronicConditions String?
+  createdAt         DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime      @default(now()) @db.Timestamptz(6)
+  appointments      Appointment[]
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("patients")
+}
+
+model Appointment {
+  id                String   @id @default(uuid())
+  appointmentNumber String
+  patientId         String
+  doctorId          String
+  hospitalId        String
+  appointmentAt     DateTime @db.Timestamptz(6)
+  slotDuration      Int      @default(15)
+  status            String   @default("BOOKED")
+  reason            String?
+  notes             String?
+  prescriptionUrl   String?
+  reminderSent      Boolean  @default(false)
+  bookedBy          String?
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  doctor            Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  hospital          Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  patient           Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("appointments")
+}
+
+model SurgerySchedule {
+  id                String            @id @default(uuid())
+  surgeryNumber     String
+  hospitalId        String
+  doctorId          String
+  patientHealthId   String
+  operationName     String
+  operationType     String?
+  complexity        String?
+  otRoom            String
+  scheduledStartAt  DateTime          @db.Timestamptz(6)
+  scheduledEndAt    DateTime          @db.Timestamptz(6)
+  estimatedDuration Int?
+  assistingDoctors  String?
+  nurses            String?
+  anesthetistId     String?
+  status            String            @default("SCHEDULED")
+  preOpNotes        String?
+  postOpNotes       String?
+  complications     String?
+  consentFormUrl    String?
+  consentGiven      Boolean           @default(false)
+  createdAt         DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime          @default(now()) @db.Timestamptz(6)
+  doctor            Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  hospital          Hospital          @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  health_identities health_identities @relation(fields: [patientHealthId], references: [healthId])
+
+  @@map("surgery_schedules")
+}
+
+model BloodBank {
+  id               String    @id @default(uuid())
+  hospitalId       String
+  bloodGroup       String
+  unitsAvailable   Int       @default(0)
+  unitsReserved    Int       @default(0)
+  lastDonationDate DateTime? @db.Date
+  lastUpdated      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  lowStockAlert    Boolean   @default(false)
+  criticalLevel    Int       @default(5)
+  hospital         Hospital  @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+
+  @@map("blood_banks")
+}
+
+model BirthRecord {
+  id                                                                String            @id @default(uuid())
+  birthCertificateNo                                                String            @unique
+  childHealthId                                                     String
+  motherHealthId                                                    String
+  fatherName                                                        String?
+  hospitalId                                                        String
+  doctorId                                                          String
+  dob                                                               DateTime          @db.Timestamptz(6)
+  gender                                                            String
+  weightKg                                                          Decimal?          @db.Decimal(5, 2)
+  heightCm                                                          Decimal?          @db.Decimal(5, 2)
+  deliveryType                                                      String?
+  complications                                                     String?
+  registeredAt                                                      DateTime          @default(now()) @db.Timestamptz(6)
+  issuedBy                                                          String?
+  createdAt                                                         DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt                                                         DateTime          @default(now()) @db.Timestamptz(6)
+  health_identities_birth_records_childHealthIdTohealth_identities  health_identities @relation("birth_records_childHealthIdTohealth_identities", fields: [childHealthId], references: [healthId])
+  doctor                                                            Doctor            @relation(fields: [doctorId], references: [id])
+  hospital                                                          Hospital          @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  health_identities_birth_records_motherHealthIdTohealth_identities health_identities @relation("birth_records_motherHealthIdTohealth_identities", fields: [motherHealthId], references: [healthId])
+
+  @@map("birth_records")
+}
+
+model DeathRecord {
+  id                 String            @id @default(uuid())
+  deathCertificateNo String            @unique
+  patientHealthId    String
+  hospitalId         String
+  doctorId           String
+  dod                DateTime          @db.Timestamptz(6)
+  causeOfDeath       String
+  deathType          String?
+  autopsyRequired    Boolean           @default(false)
+  autopsyDone        Boolean           @default(false)
+  autopsyReportUrl   String?
+  registeredAt       DateTime          @default(now()) @db.Timestamptz(6)
+  issuedBy           String?
+  createdAt          DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime          @default(now()) @db.Timestamptz(6)
+  doctor             Doctor            @relation(fields: [doctorId], references: [id])
+  hospital           Hospital          @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  health_identities  health_identities @relation(fields: [patientHealthId], references: [healthId])
+
+  @@map("death_records")
+}
+
+model Notification {
+  id         String    @id @default(uuid())
+  userId     String
+  type       String
+  title      String
+  message    String
+  channels   String?
+  sentAt     DateTime? @db.Timestamptz(6)
+  readAt     DateTime? @db.Timestamptz(6)
+  entityType String?
+  entityId   String?
+  priority   String    @default("NORMAL")
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id           String    @id @default(uuid())
+  userId       String?
+  userRole     String?
+  userIp       String?
+  action       String
+  entityType   String?
+  entityId     String?
+  timestamp    DateTime  @default(now()) @db.Timestamptz(6)
+  hospitalId   String?
+  oldValue     String?
+  newValue     String?
+  metadata     String?
+  status       String?
+  errorMessage String?
+  hospital     Hospital? @relation(fields: [hospitalId], references: [id])
+  user         User?     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model departments {
+  id               String      @id
+  hospitalId       String
+  name             String
+  description      String?
+  floorNumber      Int?
+  contactExtension String?
+  isActive         Boolean     @default(true)
+  createdAt        DateTime    @default(now()) @db.Timestamptz(6)
+  hospitals        Hospital    @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  doctors          Doctor[]
+  employees        employees[]
+}
+
+model employees {
+  id               String       @id
+  userId           String
+  hospitalId       String
+  departmentId     String?
+  name             String
+  role             String
+  employeeId       String
+  shiftType        String?
+  shiftStartTime   String?
+  shiftEndTime     String?
+  phone            String?
+  emergencyContact String?
+  isActive         Boolean      @default(true)
+  joinedDate       DateTime     @db.Date
+  createdAt        DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime     @default(now()) @db.Timestamptz(6)
+  departments      departments? @relation(fields: [departmentId], references: [id])
+  hospitals        Hospital     @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  users            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model health_identities {
+  healthId                                                             String            @id
+  aadhaarHash                                                          String            @unique
+  fullName                                                             String
+  dob                                                                  DateTime          @db.Date
+  gender                                                               String
+  mobile                                                               String
+  email                                                                String?
+  bloodGroup                                                           String?
+  emergencyContact                                                     String?
+  addressEncrypted                                                     String?
+  userId                                                               String?           @unique
+  createdAt                                                            DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt                                                            DateTime          @default(now()) @db.Timestamptz(6)
+  isActive                                                             Boolean           @default(true)
+  birth_records_birth_records_childHealthIdTohealth_identities         BirthRecord[]     @relation("birth_records_childHealthIdTohealth_identities")
+  birth_records_birth_records_motherHealthIdTohealth_identities        BirthRecord[]     @relation("birth_records_motherHealthIdTohealth_identities")
+  death_records                                                        DeathRecord[]
+  users                                                                User?             @relation(fields: [userId], references: [id])
+  mortuaries                                                           mortuaries[]
+  organ_donations_organ_donations_donorHealthIdTohealth_identities     organ_donations[] @relation("organ_donations_donorHealthIdTohealth_identities")
+  organ_donations_organ_donations_recipientHealthIdTohealth_identities organ_donations[] @relation("organ_donations_recipientHealthIdTohealth_identities")
+  surgery_schedules                                                    SurgerySchedule[]
+}
+
+model mortuaries {
+  id                 String             @id
+  hospitalId         String
+  slotNumber         String
+  bodyHealthId       String?
+  status             String             @default("AVAILABLE")
+  dateIn             DateTime?          @db.Timestamptz(6)
+  dateOut            DateTime?          @db.Timestamptz(6)
+  storageDuration    Int?
+  bodyCondition      String?
+  refrigerationTemp  Float?             @db.Real
+  releasedTo         String?
+  releaseDocumentUrl String?
+  createdAt          DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime           @default(now()) @db.Timestamptz(6)
+  health_identities  health_identities? @relation(fields: [bodyHealthId], references: [healthId])
+  hospitals          Hospital           @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+
+  @@unique([hospitalId, slotNumber], map: "mortuaries_slot_unique")
+}
+
+model organ_donations {
+  id                                                                     String             @id
+  donorHealthId                                                          String
+  recipientHealthId                                                      String?
+  hospitalId                                                             String
+  organType                                                              String
+  status                                                                 String
+  pledgeDate                                                             DateTime           @db.Timestamptz(6)
+  expiryDate                                                             DateTime?          @db.Timestamptz(6)
+  transplantDate                                                         DateTime?          @db.Timestamptz(6)
+  bloodGroup                                                             String?
+  tissueType                                                             String?
+  medicalClearance                                                       Boolean            @default(false)
+  notes                                                                  String?
+  createdAt                                                              DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt                                                              DateTime           @default(now()) @db.Timestamptz(6)
+  health_identities_organ_donations_donorHealthIdTohealth_identities     health_identities  @relation("organ_donations_donorHealthIdTohealth_identities", fields: [donorHealthId], references: [healthId])
+  hospitals                                                              Hospital           @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  health_identities_organ_donations_recipientHealthIdTohealth_identities health_identities? @relation("organ_donations_recipientHealthIdTohealth_identities", fields: [recipientHealthId], references: [healthId])
+}
+
+model receptionists {
+  id                  String   @id
+  userId              String
+  hospitalId          String
+  name                String
+  employeeId          String
+  canBookAppointments Boolean  @default(true)
+  canRegisterPatients Boolean  @default(true)
+  canViewRecords      Boolean  @default(false)
+  shiftType           String?
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime @default(now()) @db.Timestamptz(6)
+  hospitals           Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  users               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model sessions {
+  id               String    @id
+  userId           String
+  accessTokenHash  String
+  refreshTokenHash String
+  deviceId         String?
+  deviceName       String?
+  ipAddress        String?
+  userAgent        String?
+  issuedAt         DateTime  @default(now()) @db.Timestamptz(6)
+  expiresAt        DateTime  @db.Timestamptz(6)
+  lastActivity     DateTime  @default(now()) @db.Timestamptz(6)
+  isActive         Boolean   @default(true)
+  revokedAt        DateTime? @db.Timestamptz(6)
+  revokeReason     String?
+  users            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
